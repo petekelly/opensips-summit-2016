@@ -1,0 +1,161 @@
+<html>
+
+<head>
+	<script src="jquery-2.2.3.min.js"></script>
+	<script src="sip-0.7.5.min.js"></script>
+	<script>
+		if (SIP.WebRTC.isSupported()) {
+
+			var mediaStream;
+
+			var mediaConstraints = {
+				audio: true,
+				video: true
+			};
+
+
+			var audioConstraints = {
+				audio: true,
+				video: false
+			};
+
+			<!-- Here we wait for the document to be fully loaded and ready before executing the
+			function -->
+			$(document).ready(function() {
+
+				<!-- Registers a callback on the reglink 'click' action. It then creates a new user agent
+				and registers. -->
+				$("#reglink").on('click', function(id) {
+					myAuth = $("#authname").val();
+					ua = new SIP.UA({
+						uri: myAuth + "@146.185.161.38",
+						wsServers: "wss://146.185.161.38:443",
+						traceSip: true,
+						authorizationUser: '1000',
+						password: '1000'
+					});
+
+					<!-- registers an "INVITE" callback on the useragent that has been created. Basically
+					if I receive an invite then accept the call and put the remote video into remoteVideo -->
+					ua.on("invite", function(session) {
+						$("#msg").html("Accepting incoming call");
+						session.accept({
+							media: {
+								stream: mediaStream,
+								render: {
+									remote: document.getElementById('remoteVideo'),
+								}
+							}
+						});
+
+						<!-- Change some HTML when the incoming call is accepted -->
+						session.on('accepted', function(response, cause) {
+							$("#msg").html("Call in Progress");
+						});
+
+
+					});
+				});
+
+
+				<!-- Registers a callback on the pstnlink 'click' action. It then sends an INVITE using the existing ua
+				- slight bug here on this page is that you must always REGISTER to get a ua, it should not be necessary normally -->
+				$("#pstnlink").on("click", function(user) {
+
+					SIP.WebRTC.getUserMedia(audioConstraints, function(stream) {
+						mediaStream = stream;
+					}, function(e) {
+						console.error(e);
+					});
+
+
+					$("#msg").html("Calling PSTN");
+
+					var session = ua.invite("sip:" + $("#topstn").val() + "@146.185.161.38", {
+						media: {
+							stream: mediaStream,
+							render: {
+								remote: document.getElementById('remoteAudio'),
+							}
+						}
+					});
+
+					session.on('accepted', function(response, cause) {
+						$("#msg").html("Call in Progress");
+					});
+					session.on('progress', function(response, cause) {
+						$("#msg").html("Ringing");
+					});
+					session.on('failed', function(response, cause) {
+						$("#msg").html("Call Failed");
+					});
+
+				});
+
+
+				<!-- Registers a callback on the calllink 'click' action. It then sends an INVITE using the existing ua
+				- slight bug here on this page is that you must always REGISTER to get a ua, it should not be necessary normally -->
+				$("#calllink").on("click", function(user) {
+
+					SIP.WebRTC.getUserMedia(mediaConstraints, function(stream) {
+						mediaStream = stream;
+					}, function(e) {
+						console.error(e);
+					});
+
+
+					$("#msg").html("Calling");
+
+					var session = ua.invite("sip:" + $("#touser").val() + "@146.185.161.38", {
+						media: {
+							stream: mediaStream,
+							render: {
+								remote: document.getElementById('remoteVideo'),
+							}
+						}
+					});
+
+
+
+
+					session.on('accepted', function(response, cause) {
+						$("#msg").html("Call in Progress");
+					});
+
+				});
+
+
+
+
+			});
+		}
+	</script>
+	<style type="text/css">
+		video {
+			width: 320px;
+			height: 240px;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="controls">
+		<input id="authname" type="text" value="" />
+		<a id="reglink" href="#">Register</a>
+		<br />
+		<input id="touser" type="text" value="" />
+		<a id="calllink" href="#">Call</a>
+		<br />
+		<input id="topstn" type="text" value="" />
+		<a id="pstnlink" href="#">Call PSTN</a>
+
+	</div>
+	<div id="videos">
+		<div id="msg"></div>
+		<video id="remoteVideo"></video>
+		<audio id="remoteAudio"></audio>
+	</div>
+
+</body>
+
+</html>
